@@ -11,11 +11,11 @@ class MissingField(LookupError):
 
     @property
     def field_type_name(self) -> str:
-        return type_name(self.field_type, short=True)
+        pass
 
     @property
     def holder_class_name(self) -> str:
-        return type_name(self.holder_class, short=True)
+        pass
 
     def __str__(self) -> str:
         return (
@@ -31,7 +31,7 @@ class ExtraKeysError(ValueError):
 
     @property
     def target_class_name(self) -> str:
-        return type_name(self.target_type, short=True)
+        pass
 
     def __str__(self) -> str:
         extra_keys_str = ", ".join(k for k in self.extra_keys)
@@ -60,11 +60,11 @@ class UnserializableField(UnserializableDataError):
 
     @property
     def field_type_name(self) -> str:
-        return type_name(self.field_type, short=True)
+        pass
 
     @property
     def holder_class_name(self) -> str:
-        return type_name(self.holder_class, short=True)
+        pass
 
     def __str__(self) -> str:
         s = (
@@ -125,11 +125,11 @@ class InvalidFieldValue(ValueError):
 
     @property
     def field_type_name(self) -> str:
-        return type_name(self.field_type, short=True)
+        pass
 
     @property
     def holder_class_name(self) -> str:
-        return type_name(self.holder_class, short=True)
+        pass
 
     def __str__(self) -> str:
         s = (
@@ -185,7 +185,7 @@ class ThirdPartyModuleNotFoundError(ModuleNotFoundError):
 
     @property
     def holder_class_name(self) -> str:
-        return type_name(self.holder_class, short=True)
+        pass
 
     def __str__(self) -> str:
         s = (
@@ -203,7 +203,7 @@ class UnresolvedTypeReferenceError(NameError):
 
     @property
     def holder_class_name(self) -> str:
-        return type_name(self.holder_class, short=True)
+        pass
 
     def __str__(self) -> str:
         return (

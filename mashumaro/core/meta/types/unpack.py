@@ -158,7 +158,6 @@ class AbstractUnpackerBuilder(AbstractMethodBuilder, ABC):
         if default_kwargs:
             return f"{first_args}{extra_args_str}, {default_kwargs}"
         else:  # pragma: no cover
-            # we shouldn't be here because there will be default_kwargs
             return f"{first_args}{extra_args_str}"
 
     def _get_call_expr(self, spec: ValueSpec, method_name: str) -> str:
@@ -212,7 +211,6 @@ class UnionUnpackerBuilder(AbstractUnpackerBuilder):
                 else:
                     condition = f"type(value) is {type_arg.__name__}"
                 if (condition, unpacker) in unpackers:  # pragma: no cover
-                    # we shouldn't be here because condition is always unique
                     continue
                 with unpacker_block.indent(f"if {condition}:"):
                     unpacker_block.append("return value")
@@ -560,455 +558,109 @@ class SubtypeUnpackerBuilder(DiscriminatedUnionUnpackerBuilder):
 def _unpack_with_annotated_serialization_strategy(
     spec: ValueSpec, strategy: SerializationStrategy
 ) -> Expression:
-    strategy_type = type(strategy)
-    try:
-        value_type: type | Any = get_function_arg_annotation(
-            strategy.deserialize, arg_pos=0
-        )
-    except (KeyError, ValueError):
-        value_type = Any
-    if isinstance(value_type, ForwardRef):
-        type_params = getattr(strategy_type, "__type_params__", ())
-        value_type = evaluate_forward_ref(value_type, type_params=type_params)  # type: ignore[arg-type]
-    value_type = substitute_type_params(
-        value_type,  # type: ignore
-        resolve_type_params(strategy_type, get_args(spec.type))[strategy_type],
-    )
-    overridden_fn = f"__{spec.field_ctx.name}_deserialize_{random_hex()}"
-    setattr(spec.attrs, overridden_fn, strategy.deserialize)
-    new_spec = spec.copy(type=value_type)
-    field_metadata = new_spec.field_ctx.metadata
-    if field_metadata.get("serialization_strategy") is strategy:
-        new_spec.field_ctx.metadata = {
-            k: v
-            for k, v in field_metadata.items()
-            if k != "serialization_strategy"
-        }
-    unpacker = UnpackerRegistry.get(new_spec)
-    return f"{spec.cls_attrs_name}.{overridden_fn}({unpacker})"
+    pass
 
 
 def get_overridden_deserialization_method(
     spec: ValueSpec,
 ) -> Callable | str | ExpressionWrapper | None:
-    deserialize_option = spec.field_ctx.metadata.get("deserialize")
-    if deserialize_option is not None:
-        return deserialize_option
-    checking_types = [spec.type, spec.origin_type]
-    if spec.annotated_type:
-        checking_types.insert(0, spec.annotated_type)
-    for typ in checking_types:
-        for strategy in spec.builder.iter_serialization_strategies(
-            spec.field_ctx.metadata, typ
-        ):
-            if strategy is pass_through:
-                return pass_through
-            elif isinstance(strategy, dict):
-                deserialize_option = strategy.get("deserialize")
-            elif isinstance(strategy, SerializationStrategy):
-                if strategy.__use_annotations__ or is_generic(type(strategy)):
-                    return ExpressionWrapper(
-                        _unpack_with_annotated_serialization_strategy(
-                            spec=spec, strategy=strategy
-                        )
-                    )
-                deserialize_option = strategy.deserialize
-            if deserialize_option is not None:
-                return deserialize_option
+    pass
 
 
 @register
 def unpack_type_with_overridden_deserialization(
     spec: ValueSpec,
 ) -> Expression | None:
-    deserialization_method = get_overridden_deserialization_method(spec)
-    if deserialization_method is pass_through:
-        return spec.expression
-    elif isinstance(deserialization_method, ExpressionWrapper):
-        return deserialization_method.expression
-    elif callable(deserialization_method):
-        overridden_fn = f"__{spec.field_ctx.name}_deserialize_{random_hex()}"
-        setattr(spec.attrs, overridden_fn, deserialization_method)
-        return f"{spec.cls_attrs_name}.{overridden_fn}({spec.expression})"
+    pass
 
 
 def _unpack_annotated_serializable_type(spec: ValueSpec) -> Expression | None:
-    try:
-        # noinspection PyProtectedMember
-        # noinspection PyUnresolvedReferences
-        value_type = get_function_arg_annotation(
-            spec.origin_type._deserialize, arg_pos=0
-        )
-    except (KeyError, ValueError):
-        raise UnserializableField(
-            field_name=spec.field_ctx.name,
-            field_type=spec.type,
-            holder_class=spec.builder.cls,
-            msg='Method _deserialize must have annotated "value" argument',
-        ) from None
-    if is_self(value_type):
-        return (
-            f"{spec.builder.get_type_name_identifier(spec.type)}"
-            f"._deserialize({spec.expression})"
-        )
-    if isinstance(value_type, ForwardRef):
-        type_params = getattr(spec.origin_type, "__type_params__", ())
-        value_type = evaluate_forward_ref(value_type, type_params=type_params)  # type: ignore[arg-type]
-    value_type = substitute_type_params(
-        value_type,
-        resolve_type_params(spec.origin_type, get_args(spec.type))[
-            spec.origin_type
-        ],
-    )
-    unpacker = UnpackerRegistry.get(spec.copy(type=value_type))
-    field_type = spec.builder.get_type_name_identifier(spec.type)
-    return f"{field_type}._deserialize({unpacker})"
+    pass
 
 
 @register
 def unpack_serializable_type(spec: ValueSpec) -> Expression | None:
-    try:
-        if not issubclass(spec.origin_type, SerializableType):
-            return None
-    except TypeError:
-        return None
-    if spec.origin_type.__use_annotations__:
-        return _unpack_annotated_serializable_type(spec)
-    else:
-        field_type = spec.builder.get_type_name_identifier(spec.type)
-        return f"{field_type}._deserialize({spec.expression})"
+    pass
 
 
 @register
 def unpack_generic_serializable_type(spec: ValueSpec) -> Expression | None:
-    with suppress(TypeError):
-        if issubclass(spec.origin_type, GenericSerializableType):
-            type_arg_names = ", ".join(
-                list(map(type_name, get_args(spec.type)))
-            )
-            field_type = spec.builder.get_type_name_identifier(
-                spec.origin_type
-            )
-            return (
-                f"{field_type}._deserialize({spec.expression}, "
-                f"[{type_arg_names}])"
-            )
+    pass
 
 
 @register
 def unpack_dataclass(spec: ValueSpec) -> Expression | None:
-    if is_dataclass(spec.origin_type):
-        for annotation in spec.annotations:
-            if isinstance(annotation, Discriminator):
-                return DiscriminatedUnionUnpackerBuilder(annotation).build(
-                    spec
-                )
-        type_args = get_args(spec.type)
-        method_name = spec.builder.get_unpack_method_name(
-            type_args, spec.builder.format_name
-        )
-        method_loc = spec.origin_type if spec.builder.is_nailed else spec.attrs
-        if get_class_that_defines_method(
-            method_name, method_loc
-        ) != method_loc and (
-            spec.origin_type is not spec.builder.cls
-            or spec.builder.get_unpack_method_name(
-                type_args=type_args,
-                format_name=spec.builder.format_name,
-                decoder=spec.builder.decoder,
-            )
-            != method_name
-        ):
-            builder = spec.builder.__class__(
-                spec.origin_type,
-                type_args,
-                dialect=spec.builder.dialect,
-                format_name=spec.builder.format_name,
-                default_dialect=spec.builder.default_dialect,
-                attrs=method_loc,
-                attrs_registry=(
-                    spec.attrs_registry if not spec.builder.is_nailed else None
-                ),
-                allow_postponed_evaluation=(
-                    spec.builder.allow_postponed_evaluation
-                ),
-            )
-            builder.add_unpack_method()
-        method_args = ", ".join(
-            filter(
-                None,
-                (
-                    spec.expression,
-                    spec.builder.get_unpack_method_flags(spec.type),
-                ),
-            )
-        )
-        cls_alias = clean_id(type_name(spec.origin_type))
-        if spec.builder.is_nailed:
-            spec.builder.ensure_object_imported(spec.origin_type, cls_alias)
-            return f"{cls_alias}.{method_name}({method_args})"
-        else:
-            method_name_alias = f"{cls_alias}_{method_name}"
-            spec.builder.ensure_object_imported(
-                getattr(spec.attrs, method_name), method_name_alias
-            )
-            return f"{method_name_alias}({method_args})"
+    pass
 
 
 @register
 def unpack_final(spec: ValueSpec) -> Expression | None:
-    if is_final(spec.type):
-        return UnpackerRegistry.get(spec.copy(type=get_args(spec.type)[0]))
+    pass
 
 
 @register
 def unpack_any(spec: ValueSpec) -> Expression | None:
-    if spec.type is Any:
-        return spec.expression
+    pass
 
 
 @register
 def unpack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
-    if is_special_typing_primitive(spec.origin_type):
-        if is_union(spec.type):
-            resolved_type_params = spec.builder.get_field_resolved_type_params(
-                spec.field_ctx.name
-            )
-            if is_optional(spec.type, resolved_type_params):
-                arg = not_none_type_arg(
-                    get_args(spec.type), resolved_type_params
-                )
-                uv = UnpackerRegistry.get(spec.copy(type=arg))
-                return expr_or_maybe_none(spec, uv)
-            else:
-                union_args = get_args(spec.type)
-                for annotation in spec.annotations:
-                    if isinstance(annotation, Discriminator):
-                        return DiscriminatedUnionUnpackerBuilder(
-                            annotation, union_args
-                        ).build(spec)
-                return UnionUnpackerBuilder(union_args).build(spec)
-        elif spec.origin_type is typing.AnyStr:
-            raise UnserializableDataError(
-                "AnyStr is not supported by mashumaro"
-            )
-        elif is_type_var_any(spec.type):
-            return spec.expression
-        elif is_type_var(spec.type):
-            constraints = getattr(spec.type, "__constraints__")
-            if constraints:
-                return TypeVarUnpackerBuilder(constraints).build(spec)
-            else:
-                if type_var_has_default(spec.type):
-                    bound = get_type_var_default(spec.type)
-                else:
-                    bound = getattr(spec.type, "__bound__")
-                # act as if it was Optional[bound]
-                uv = UnpackerRegistry.get(spec.copy(type=bound))
-                return expr_or_maybe_none(spec, uv)
-        elif is_new_type(spec.type):
-            return UnpackerRegistry.get(
-                spec.copy(type=spec.type.__supertype__)
-            )
-        elif is_literal(spec.type):
-            return LiteralUnpackerBuilder().build(spec)
-        elif spec.type is typing_extensions.LiteralString:
-            return UnpackerRegistry.get(spec.copy(type=str))
-        elif is_self(spec.type):
-            method_name = spec.builder.get_unpack_method_name(
-                format_name=spec.builder.format_name
-            )
-            method_loc = (
-                spec.builder.cls if spec.builder.is_nailed else spec.attrs
-            )
-            if (
-                get_class_that_defines_method(method_name, method_loc)
-                != method_loc
-                # not hasattr(spec.builder.cls, method_name)
-                and spec.builder.get_unpack_method_name(
-                    format_name=spec.builder.format_name,
-                    decoder=spec.builder.decoder,
-                )
-                != method_name
-            ):
-                builder = spec.builder.__class__(
-                    spec.builder.cls,
-                    dialect=spec.builder.dialect,
-                    format_name=spec.builder.format_name,
-                    default_dialect=spec.builder.default_dialect,
-                    attrs=method_loc,
-                    attrs_registry=(
-                        spec.attrs_registry
-                        if not spec.builder.is_nailed
-                        else None
-                    ),
-                )
-                builder.add_unpack_method()
-            method_args = ", ".join(
-                filter(
-                    None,
-                    (
-                        spec.expression,
-                        spec.builder.get_unpack_method_flags(spec.builder.cls),
-                    ),
-                )
-            )
-            if spec.builder.is_nailed:
-                spec.builder.add_type_modules(spec.builder.cls)
-                self_cls_name = spec.builder.get_type_name_identifier(
-                    spec.builder.cls
-                )
-                return f"{self_cls_name}.{method_name}({method_args})"
-            else:
-                return f"_cls.{method_name}({method_args})"
-        elif is_required(spec.type) or is_not_required(spec.type):
-            return UnpackerRegistry.get(spec.copy(type=get_args(spec.type)[0]))
-        elif is_unpack(spec.type):
-            unpacker = UnpackerRegistry.get(
-                spec.copy(type=get_args(spec.type)[0])
-            )
-            return f"*{unpacker}"
-        elif is_type_var_tuple(spec.type):
-            return UnpackerRegistry.get(spec.copy(type=tuple[Any, ...]))
-        elif isinstance(spec.type, ForwardRef):
-            evaluated = evaluate_forward_ref(spec.type)
-            if evaluated is not None:
-                return UnpackerRegistry.get(spec.copy(type=evaluated))
-        elif is_type_alias_type(spec.type):
-            return UnpackerRegistry.get(spec.copy(type=spec.type.__value__))
-        elif is_type_alias_type(get_type_origin(spec.type)):
-            origin = get_type_origin(spec.type)
-            type_params = getattr(origin, "__type_params__", ())
-            args = get_args(spec.type)
-            param_map = dict(zip(type_params, args))
-            resolved = substitute_type_params(origin.__value__, param_map)
-            return UnpackerRegistry.get(spec.copy(type=resolved))
-        elif is_readonly(spec.type):
-            return UnpackerRegistry.get(spec.copy(type=get_args(spec.type)[0]))
-        raise UnserializableDataError(
-            f"{spec.type} as a field type is not supported by mashumaro"
-        )
+    pass
 
 
 @register
 def unpack_number(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type in (int, float):
-        return TypeMatchEligibleExpression(
-            f"{type_name(spec.origin_type)}({spec.expression})"
-        )
+    pass
 
 
 @register
 def unpack_bool(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is bool:
-        return TypeMatchEligibleExpression(f"bool({spec.expression})")
+    pass
 
 
 @register
 def unpack_none(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type in (NoneType, None):
-        return TypeMatchEligibleExpression("None")
+    pass
 
 
 @register
 def unpack_date_objects(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type in (datetime.datetime, datetime.date, datetime.time):
-        deserialize_option = get_overridden_deserialization_method(spec)
-        if deserialize_option is not None:
-            if deserialize_option == "ciso8601":
-                if ciso8601:
-                    spec.builder.ensure_module_imported(ciso8601)
-                    datetime_parser = "ciso8601.parse_datetime"
-                else:
-                    raise ThirdPartyModuleNotFoundError(
-                        "ciso8601", spec.field_ctx.name, spec.builder.cls
-                    )  # pragma: no cover
-            elif deserialize_option == "pendulum":
-                if pendulum:
-                    spec.builder.ensure_module_imported(pendulum)
-                    datetime_parser = "pendulum.parse"
-                else:
-                    raise ThirdPartyModuleNotFoundError(
-                        "pendulum", spec.field_ctx.name, spec.builder.cls
-                    )  # pragma: no cover
-            else:
-                raise UnsupportedDeserializationEngine(
-                    spec.field_ctx.name,
-                    spec.type,
-                    spec.builder.cls,
-                    deserialize_option,
-                )
-            suffix = ""
-            if spec.origin_type is datetime.date:
-                suffix = ".date()"
-            elif spec.origin_type is datetime.time:
-                suffix = ".time()"
-            return f"{datetime_parser}({spec.expression}){suffix}"
-        method = f"__datetime_{spec.origin_type.__name__}_fromisoformat"
-        spec.builder.ensure_object_imported(
-            getattr(datetime, spec.origin_type.__name__).fromisoformat, method
-        )
-        return f"{method}({spec.expression})"
+    pass
 
 
 @register
 def unpack_timedelta(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is datetime.timedelta:
-        method = "__datetime_timedelta"
-        spec.builder.ensure_object_imported(datetime.timedelta, method)
-        return f"{method}(seconds={spec.expression})"
+    pass
 
 
 @register
 def unpack_timezone(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is datetime.timezone:
-        spec.builder.ensure_object_imported(parse_timezone)
-        return f"parse_timezone({spec.expression})"
+    pass
 
 
 @register
 def unpack_zone_info(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is zoneinfo.ZoneInfo:
-        method = "__zoneinfo_ZoneInfo"
-        spec.builder.ensure_object_imported(zoneinfo.ZoneInfo, method)
-        return f"{method}({spec.expression})"
+    pass
 
 
 @register
 def unpack_uuid(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is uuid.UUID:
-        method = "__uuid_UUID"
-        spec.builder.ensure_object_imported(uuid.UUID, method)
-        return f"{method}({spec.expression})"
+    pass
 
 
 @register
 def unpack_ipaddress(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type in (
-        ipaddress.IPv4Address,
-        ipaddress.IPv6Address,
-        ipaddress.IPv4Network,
-        ipaddress.IPv6Network,
-        ipaddress.IPv4Interface,
-        ipaddress.IPv6Interface,
-    ):
-        method = f"__ipaddress_{spec.origin_type.__name__}"
-        spec.builder.ensure_object_imported(spec.origin_type, method)
-        return f"{method}({spec.expression})"
+    pass
 
 
 @register
 def unpack_decimal(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is Decimal:
-        spec.builder.ensure_object_imported(Decimal)
-        return f"Decimal({spec.expression})"
+    pass
 
 
 @register
 def unpack_fraction(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is Fraction:
-        spec.builder.ensure_object_imported(Fraction)
-        return f"Fraction({spec.expression})"
+    pass
 
 
 def unpack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
@@ -1064,287 +716,28 @@ def unpack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
 
 
 def unpack_named_tuple(spec: ValueSpec) -> Expression:
-    resolved = resolve_type_params(spec.origin_type, get_args(spec.type))[
-        spec.origin_type
-    ]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
-    }
-    fields = getattr(spec.type, "_fields", ())
-    defaults = getattr(spec.type, "_field_defaults", {})
-    unpackers = []
-    as_dict = spec.builder.get_dialect_or_config_option(
-        "namedtuple_as_dict", False
-    )
-    deserialize_option = get_overridden_deserialization_method(spec)
-    if deserialize_option is not None:
-        if deserialize_option == "as_dict":
-            as_dict = True
-        elif deserialize_option == "as_list":
-            as_dict = False
-        else:
-            raise UnsupportedDeserializationEngine(
-                field_name=spec.field_ctx.name,
-                field_type=spec.type,
-                holder_class=spec.builder.cls,
-                engine=deserialize_option,
-            )
-    field_indices: Iterable[Any]
-    if as_dict:
-        field_indices = zip((f"'{name}'" for name in fields), fields)
-    else:
-        field_indices = enumerate(fields)
-    if not defaults:
-        packed_value = spec.expression
-    else:
-        packed_value = "value"
-    for idx, field in field_indices:
-        unpacker = UnpackerRegistry.get(
-            spec.copy(
-                type=annotations.get(field, Any),
-                expression=f"{packed_value}[{idx}]",
-                could_be_none=True,
-            )
-        )
-        unpackers.append(unpacker)
-
-    if not defaults:
-        field_type = spec.builder.get_type_name_identifier(spec.type)
-        return f"{field_type}({', '.join(unpackers)})"
-
-    lines = CodeLines()
-    method_name = (
-        f"__unpack_named_tuple_{spec.builder.cls.__name__}_"
-        f"{spec.field_ctx.name}__{random_hex()}"
-    )
-    default_kwargs = spec.builder.get_unpack_method_default_flag_values()
-    if spec.builder.is_nailed:
-        lines.append("@classmethod")
-        method_args = "cls, value"
-    else:
-        method_args = "value"
-    if default_kwargs:
-        lines.append(f"def {method_name}({method_args}, {default_kwargs}):")
-    else:  # pragma: no cover
-        # we shouldn't be here because there will be default_kwargs
-        lines.append(f"def {method_name}({method_args}):")
-    with lines.indent():
-        lines.append("fields = []")
-        with lines.indent("try:"):
-            for unpacker in unpackers:
-                lines.append(f"fields.append({unpacker})")
-        with lines.indent("except IndexError:"):
-            lines.append("pass")
-        field_type = spec.builder.get_type_name_identifier(spec.type)
-        lines.append(f"return {field_type}(*fields)")
-    lines.append(
-        f"setattr({spec.cls_attrs_name}, '{method_name}', {method_name})"
-    )
-    if spec.builder.get_config().debug:
-        print(f"{type_name(spec.builder.cls)}:")
-        print(lines.as_text())
-    exec(lines.as_text(), spec.builder.globals, spec.builder.__dict__)
-    method_args = ", ".join(
-        filter(None, (spec.expression, spec.builder.get_unpack_method_flags()))
-    )
-    return f"{spec.cls_attrs_name}.{method_name}({method_args})"
+    pass
 
 
 def unpack_typed_dict(spec: ValueSpec) -> Expression:
-    resolved = resolve_type_params(spec.origin_type, get_args(spec.type))[
-        spec.origin_type
-    ]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
-    }
-    all_keys = list(annotations.keys())
-    required_keys = set(getattr(spec.type, "__required_keys__", all_keys))
-    optional_keys = set(getattr(spec.type, "__optional_keys__", []))
-
-    # workaround for https://github.com/python/cpython/issues/97727
-    for key, annotation in annotations.items():
-        if isinstance(annotation, ForwardRef):
-            annotation = evaluate_forward_ref(annotation)
-            if get_type_origin(annotation) is NotRequired:
-                required_keys.discard(key)
-                optional_keys.add(key)
-
-    lines = CodeLines()
-    method_name = (
-        f"__unpack_typed_dict_{spec.builder.cls.__name__}_"
-        f"{spec.field_ctx.name}__{random_hex()}"
-    )
-    default_kwargs = spec.builder.get_unpack_method_default_flag_values()
-    if spec.builder.is_nailed:
-        lines.append("@classmethod")
-        method_args = "cls, value"
-    else:
-        method_args = "value"
-    if default_kwargs:
-        lines.append(f"def {method_name}({method_args}, {default_kwargs}):")
-    else:  # pragma: no cover
-        # we shouldn't be here because there will be default_kwargs
-        lines.append(f"def {method_name}({method_args}):")
-    with lines.indent():
-        lines.append("d = {}")
-        for key in sorted(required_keys, key=all_keys.index):
-            unpacker = UnpackerRegistry.get(
-                spec.copy(
-                    type=annotations[key],
-                    expression=f"value['{key}']",
-                    could_be_none=True,
-                    owner=spec.type,
-                )
-            )
-            lines.append(f"d['{key}'] = {unpacker}")
-        for key in sorted(optional_keys, key=all_keys.index):
-            lines.append(f"key_value = value.get('{key}', MISSING)")
-            with lines.indent("if key_value is not MISSING:"):
-                unpacker = UnpackerRegistry.get(
-                    spec.copy(
-                        type=annotations[key],
-                        expression="key_value",
-                        could_be_none=True,
-                        owner=spec.type,
-                    )
-                )
-                lines.append(f"d['{key}'] = {unpacker}")
-        lines.append("return d")
-    lines.append(
-        f"setattr({spec.cls_attrs_name}, '{method_name}', {method_name})"
-    )
-    if spec.builder.get_config().debug:
-        print(f"{type_name(spec.builder.cls)}:")
-        print(lines.as_text())
-    exec(lines.as_text(), spec.builder.globals, spec.builder.__dict__)
-    method_args = ", ".join(
-        filter(None, (spec.expression, spec.builder.get_unpack_method_flags()))
-    )
-    return f"{spec.cls_attrs_name}.{method_name}({method_args})"
+    pass
 
 
 @register
 def unpack_collection(spec: ValueSpec) -> Expression | None:
-    if not issubclass(spec.origin_type, Collection):
-        return None
-    elif issubclass(spec.origin_type, enum.Enum):
-        return None
-
-    args = get_args(spec.type)
-
-    def inner_expr(
-        arg_num: int = 0, v_name: str = "value", v_type: type | None = None
-    ) -> Expression:
-        if v_type:
-            return UnpackerRegistry.get(
-                spec.copy(type=v_type, expression=v_name)
-            )
-        else:
-            if args and len(args) > arg_num:
-                type_arg: Any = args[arg_num]
-            else:
-                type_arg = Any
-            return UnpackerRegistry.get(
-                spec.copy(
-                    type=type_arg,
-                    expression=v_name,
-                    could_be_none=True,
-                    field_ctx=spec.field_ctx.copy(metadata={}),
-                )
-            )
-
-    if issubclass(spec.origin_type, typing.ByteString):  # type: ignore
-        if spec.origin_type is bytes:
-            spec.builder.ensure_object_imported(decodebytes)
-            return f"decodebytes({spec.expression}.encode())"
-        elif spec.origin_type is bytearray:
-            spec.builder.ensure_object_imported(decodebytes)
-            return f"bytearray(decodebytes({spec.expression}.encode()))"
-    elif issubclass(spec.origin_type, str):
-        return TypeMatchEligibleExpression(f"str({spec.expression})")
-    elif ensure_generic_collection_subclass(spec, list):
-        return f"[{inner_expr()} for value in {spec.expression}]"
-    elif ensure_generic_collection_subclass(spec, collections.deque):
-        spec.builder.ensure_module_imported(collections)
-        return (
-            f"collections.deque([{inner_expr()} "
-            f"for value in {spec.expression}])"
-        )
-    elif issubclass(spec.origin_type, tuple):  # type: ignore
-        if is_named_tuple(spec.origin_type):
-            return unpack_named_tuple(spec)
-        elif ensure_generic_collection(spec):
-            return unpack_tuple(spec, args)
-    elif ensure_generic_collection_subclass(spec, frozenset):
-        return f"frozenset([{inner_expr()} for value in {spec.expression}])"
-    elif ensure_generic_collection_subclass(spec, Set):
-        return f"set([{inner_expr()} for value in {spec.expression}])"
-    elif ensure_generic_mapping(spec, args, collections.ChainMap):
-        spec.builder.ensure_module_imported(collections)
-        return (
-            f'collections.ChainMap(*[{{{inner_expr(0, "key")}:{inner_expr(1)} '
-            f"for key, value in m.items()}} for m in {spec.expression}])"
-        )
-    elif ensure_generic_mapping(spec, args, collections.OrderedDict):
-        spec.builder.ensure_module_imported(collections)
-        return (
-            f'collections.OrderedDict({{{inner_expr(0, "key")}: '
-            f"{inner_expr(1)} for key, value in {spec.expression}.items()}})"
-        )
-    elif ensure_generic_mapping(spec, args, collections.defaultdict):
-        spec.builder.ensure_module_imported(collections)
-        default_type = type_name(args[1] if args else None)
-        return (
-            f"collections.defaultdict({default_type}, "
-            f"{{{inner_expr(0, 'key')}: "
-            f"{inner_expr(1)} for key, value in {spec.expression}.items()}})"
-        )
-    elif ensure_generic_mapping(spec, args, collections.Counter):
-        spec.builder.ensure_module_imported(collections)
-        return (
-            f'collections.Counter({{{inner_expr(0, "key")}: '
-            f"{inner_expr(1, v_type=int)} "
-            f"for key, value in {spec.expression}.items()}})"
-        )
-    elif is_typed_dict(spec.origin_type):
-        return unpack_typed_dict(spec)
-    elif issubclass(spec.origin_type, types.MappingProxyType):
-        spec.builder.ensure_module_imported(types)
-        return (
-            f'types.MappingProxyType({{{inner_expr(0, "key")}: {inner_expr(1)}'
-            f" for key, value in {spec.expression}.items()}})"
-        )
-    elif ensure_generic_mapping(spec, args, Mapping):
-        return (
-            f'{{{inner_expr(0, "key")}: {inner_expr(1)} '
-            f"for key, value in {spec.expression}.items()}}"
-        )
-    elif ensure_generic_collection_subclass(spec, Sequence):
-        return f"[{inner_expr()} for value in {spec.expression}]"
+    pass
 
 
 @register
 def unpack_pathlike(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type is os.PathLike:
-        spec.builder.ensure_module_imported(pathlib)
-        return f"{type_name(pathlib.PurePath)}({spec.expression})"
-    elif issubclass(spec.origin_type, os.PathLike):
-        field_type = spec.builder.get_type_name_identifier(spec.origin_type)
-        return f"{field_type}({spec.expression})"
+    pass
 
 
 @register
 def unpack_enum(spec: ValueSpec) -> Expression | None:
-    if issubclass(spec.origin_type, enum.Enum):
-        field_type = spec.builder.get_type_name_identifier(spec.origin_type)
-        return f"{field_type}({spec.expression})"
+    pass
 
 
 @register
 def unpack_pattern(spec: ValueSpec) -> Expression | None:
-    if spec.origin_type in (typing.Pattern, re.Pattern):
-        method = "__re_compile"
-        spec.builder.ensure_object_imported(re.compile, method)
-        return f"{method}({spec.expression})"
+    pass

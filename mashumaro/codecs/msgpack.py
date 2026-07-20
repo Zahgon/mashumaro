@@ -16,11 +16,11 @@ PreDecoderFunc = Callable[[EncodedData], Any]
 
 
 def _default_decoder(data: EncodedData) -> Any:
-    return msgpack.unpackb(data, raw=False)
+    pass
 
 
 def _default_encoder(data: Any) -> EncodedData:
-    return msgpack.packb(data, use_bin_type=True)
+    pass
 
 
 class MessagePackDecoder(Generic[T]):

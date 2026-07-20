@@ -57,7 +57,7 @@ class DataClassORJSONMixin(DataClassDictMixin):
     ) -> bytes: ...
 
     def to_json(self: T, **kwargs: Any) -> str:
-        return self.to_jsonb(**kwargs).decode()
+        pass
 
     @classmethod
     @final

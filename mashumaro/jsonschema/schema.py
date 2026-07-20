@@ -115,7 +115,6 @@ class Instance:
     __owner_builder: CodeBuilder | None = None
     __self_builder: CodeBuilder | None = None
 
-    # Original type despite custom serialization. To be revised.
     _original_type: Type = field(init=False)
 
     origin_type: Type = field(init=False)
@@ -130,34 +129,18 @@ class Instance:
 
     @property
     def _self_builder(self) -> CodeBuilder:
-        assert self.__self_builder
-        return self.__self_builder
+        pass
 
     @property
     def alias(self) -> str | None:
-        alias = self.metadata.get("alias")
-        if alias is None:
-            aliases_config = self.get_owner_config().aliases
-            alias = aliases_config.get(self.name)  # type: ignore
-        if alias is None:
-            alias = self.name
-        return alias
+        pass
 
     @property
     def owner_class(self) -> Type | None:
-        if self.__owner_builder:
-            return self.__owner_builder.cls
-        return None
+        pass
 
     def derive(self, **changes: Any) -> "Instance":
-        new_type = changes.get("type")
-        if isinstance(new_type, ForwardRef):
-            changes["type"] = evaluate_forward_ref(new_type)
-        new_instance = replace(self, **changes)
-        if is_dataclass(self.origin_type):
-            new_instance.__owner_builder = self.__self_builder
-            new_instance.update_type(new_instance.type)
-        return new_instance
+        pass
 
     def __post_init__(self) -> None:
         self._original_type = self.type
@@ -168,17 +151,7 @@ class Instance:
             self.origin_type = get_type_origin(self.type)
 
     def update_type(self, new_type: Type) -> None:
-        if self.__owner_builder:
-            self.type = self.__owner_builder.get_real_type(
-                field_name=self.name, field_type=new_type  # type: ignore
-            )
-        self.origin_type = get_type_origin(self.type)
-        if is_dataclass(self.origin_type):
-            type_args = get_args(self.type)
-            self.__self_builder = CodeBuilder(self.origin_type, type_args)
-            self.__self_builder.reset()
-        else:
-            self.__self_builder = None
+        pass
 
     def fields(self) -> Iterable[tuple[str, Type, bool, Any]]:
         for f_name, f_type in self._self_builder.get_field_types(
@@ -202,41 +175,15 @@ class Instance:
             yield f_name, f_type, has_default, f_default
 
     def get_overridden_serialization_method(self) -> Callable | str | None:
-        if not self.__owner_builder:
-            return None
-        serialize_option = self.metadata.get("serialize")
-        if serialize_option is not None:
-            if callable(serialize_option):
-                self.metadata.pop("serialize", None)  # prevent recursion
-            return serialize_option
-        for strategy in self.__owner_builder.iter_serialization_strategies(
-            self.metadata, self.type
-        ):
-            if strategy is pass_through:
-                return pass_through
-            elif isinstance(strategy, dict):
-                serialize_option = strategy.get("serialize")
-            elif isinstance(strategy, SerializationStrategy):
-                serialize_option = strategy.serialize
-            if serialize_option is not None:
-                return serialize_option
-        return None
+        pass
 
     def get_owner_config(self) -> Type[BaseConfig]:
-        if self.__owner_builder:
-            return self.__owner_builder.get_config()
-        else:
-            return BaseConfig
+        pass
 
     def get_owner_dialect_or_config_option(
         self, option: str, default: Any
     ) -> Any:
-        if self.__owner_builder:
-            return self.__owner_builder.get_dialect_or_config_option(
-                option, default
-            )
-        else:
-            return default
+        pass
 
     def get_self_config(self) -> Type[BaseConfig]:
         if self.__self_builder:
@@ -255,8 +202,7 @@ class InstanceSchemaCreatorRegistry:
     _registry: list[InstanceSchemaCreator] = field(default_factory=list)
 
     def register(self, func: InstanceSchemaCreator) -> InstanceSchemaCreator:
-        self._registry.append(func)
-        return func
+        pass
 
     def iter(self) -> Iterable[InstanceSchemaCreator]:
         yield from self._registry
@@ -295,10 +241,7 @@ def get_schema(
 
 
 def _get_schema_or_none(instance: Instance, ctx: Context) -> JSONSchema | None:
-    schema = get_schema(instance, ctx)
-    if isinstance(schema, EmptyJSONSchema):
-        return None
-    return schema
+    pass
 
 
 def apply_schema_annotations(
@@ -351,635 +294,122 @@ BASIC_TYPES = {str, int, float, bool}
 def on_type_with_overridden_serialization(
     instance: Instance, ctx: Context
 ) -> JSONSchema | None:
-    def override_with_any(reason: Any) -> None:
-        if instance.owner_class is not None:
-            name = f"{type_name(instance.owner_class)}.{instance.name}"
-        else:  # pragma: no cover
-            # we will have an owner class, but leave this here just in case
-            name = type_name(instance.type)
-        warnings.warn(
-            f"Type Any will be used for {name} with "
-            f"overridden serialization method: {reason}"
-        )
-        instance.update_type(Any)  # type: ignore[arg-type]
-
-    overridden_method = instance.get_overridden_serialization_method()
-    if overridden_method is pass_through:
-        return None
-    elif overridden_method in BASIC_TYPES:
-        instance.update_type(overridden_method)  # type: ignore
-    elif callable(overridden_method):
-        try:
-            new_type = get_function_return_annotation(overridden_method)
-            if new_type is instance.type:
-                return None
-            else:
-                instance.update_type(new_type)
-        except Exception as e:
-            override_with_any(e)
-        return get_schema(instance, ctx)
+    pass
 
 
 @register
 def on_dataclass(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if is_dataclass(instance.origin_type):
-        # When dataclasses reference themselves (typing.Self) or each other,
-        # we must break infinite recursion by forcing $ref/$defs.
-        origin = instance.origin_type
-
-        if ctx.all_refs:
-            def_key = clean_id(type_name(instance.type, short=True)).strip("_")
-        else:
-            def_key = origin.__name__
-
-        ref_prefix = ctx.ref_prefix or ctx.dialect.definitions_root_pointer
-
-        if origin in ctx._building_dataclasses:
-            # Ensure placeholder exists so the final schema can fill it in.
-            ctx.definitions.setdefault(def_key, EmptyJSONSchema())
-            return JSONSchema(reference=f"{ref_prefix}/{def_key}")
-
-        ctx._building_dataclasses.add(origin)
-        try:
-            # If a placeholder exists (recursion), we'll populate it later
-            jsonschema_config = instance.get_self_config().json_schema
-            schema = JSONObjectSchema(
-                title=def_key,
-                additionalProperties=jsonschema_config.get(
-                    "additionalProperties", False
-                ),
-            )
-            properties: dict[str, JSONSchema] = {}
-            required = []
-            field_schema_overrides = jsonschema_config.get("properties", {})
-            for f_name, f_type, has_default, f_default in instance.fields():
-                override = field_schema_overrides.get(f_name)
-                f_instance = instance.derive(type=f_type, name=f_name)
-                if override:
-                    f_schema = JSONSchema.from_dict(override)
-                else:
-                    f_schema = get_schema(f_instance, ctx)
-                if f_instance.alias:
-                    f_name = f_instance.alias
-                if f_default is not MISSING and not inspect.isdatadescriptor(
-                    f_default
-                ):
-                    f_schema.default = f_default
-                description = f_instance.metadata.get("description")
-                if description:
-                    f_schema.description = description
-
-                if not has_default:
-                    required.append(f_name)
-
-                properties[f_name] = f_schema
-            if properties:
-                schema.properties = properties
-            if required:
-                schema.required = required
-
-            # If recursion was detected, we need $defs/$ref regardless
-            existing = ctx.definitions.get(def_key)
-            if ctx.all_refs or isinstance(existing, EmptyJSONSchema):
-                ctx.definitions[def_key] = schema
-                return JSONSchema(reference=f"{ref_prefix}/{def_key}")
-            else:
-                return schema
-        finally:
-            ctx._building_dataclasses.discard(origin)
+    pass
 
 
 @register
 def on_any(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.type is Any:
-        return EmptyJSONSchema()
+    pass
 
 
 def on_literal(instance: Instance, ctx: Context) -> JSONSchema | None:
-    enum_values = []
-    for value in get_literal_values(instance.type):
-        if isinstance(value, Enum):
-            enum_values.append(value.value)
-        elif isinstance(value, (int, str, bool, NoneType)):  # type: ignore
-            enum_values.append(value)
-        elif isinstance(value, bytes):
-            enum_values.append(encodebytes(value).decode())
-    if len(enum_values) == 1:
-        return JSONSchema(const=enum_values[0])
-    else:
-        return JSONSchema(enum=enum_values)
+    pass
 
 
 @register
 def on_special_typing_primitive(
     instance: Instance, ctx: Context
 ) -> JSONSchema | None:
-    if not is_special_typing_primitive(instance.origin_type):
-        return None
-
-    args = get_args(instance.type)
-
-    if is_union(instance.type):
-        return JSONSchema(
-            anyOf=[get_schema(instance.derive(type=arg), ctx) for arg in args]
-        )
-    elif is_type_var_any(instance.type):
-        return EmptyJSONSchema()
-    elif is_type_var(instance.type):
-        constraints = getattr(instance.type, "__constraints__")
-        if constraints:
-            return JSONSchema(
-                anyOf=[
-                    get_schema(instance.derive(type=arg), ctx)
-                    for arg in constraints
-                ]
-            )
-        else:
-            bound = getattr(instance.type, "__bound__")
-            return get_schema(instance.derive(type=bound), ctx)
-    elif is_new_type(instance.type):
-        return get_schema(
-            instance.derive(type=instance.type.__supertype__), ctx
-        )
-    elif is_literal(instance.type):
-        return on_literal(instance, ctx)
-    elif is_self(instance.type):
-        # typing.Self / typing_extensions.Self is only meaningful inside
-        # a class body. In dataclasses, Instance.owner_class points to the
-        # dataclass that defines the field.
-        owner = instance.owner_class
-        if owner is None:  # pragma: no cover
-            raise NotImplementedError(
-                "typing.Self is supported only for dataclass fields"
-            )
-        return get_schema(instance.derive(type=owner), ctx)
-    elif is_required(instance.type) or is_not_required(instance.type):
-        return get_schema(instance.derive(type=args[0]), ctx)
-    elif is_unpack(instance.type):
-        return get_schema(
-            instance.derive(type=get_args(instance.type)[0]), ctx
-        )
-    elif is_type_var_tuple(instance.type):
-        return get_schema(instance.derive(type=tuple[Any, ...]), ctx)
-    elif is_readonly(instance.type):
-        return get_schema(instance.derive(type=args[0]), ctx)
-    elif isinstance(instance.type, ForwardRef):
-        evaluated = evaluate_forward_ref(instance.type)
-        if evaluated is not None:
-            return get_schema(instance.derive(type=evaluated), ctx)
-    elif is_type_alias_type(instance.type):
-        alias_type = instance.type
-        def_name = _type_alias_definition_name(alias_type)
-        alias_id = id(alias_type)
-        ref_prefix = ctx.ref_prefix or ctx.dialect.definitions_root_pointer
-
-        # If we're already building this alias, it's recursion.
-        # In that case, force using $ref/$defs.
-        if alias_id in ctx._building_type_aliases:
-            # The $defs placeholder may not exist yet (mutual recursion).
-            ctx.definitions.setdefault(def_name, EmptyJSONSchema())
-            return JSONSchema(reference=f"{ref_prefix}/{def_name}")
-
-        ctx._building_type_aliases.add(alias_id)
-        try:
-            value_schema = get_schema(
-                instance.derive(type=alias_type.__value__), ctx
-            )
-        finally:
-            ctx._building_type_aliases.discard(alias_id)
-
-        # If the alias is marked as recursive (direct or mutual),
-        # store its definition in $defs and return a $ref.
-        if def_name in ctx.definitions or ctx.all_refs:
-            existing = ctx.definitions.get(def_name)
-            if existing is None or isinstance(existing, EmptyJSONSchema):
-                ctx.definitions[def_name] = value_schema
-            return JSONSchema(reference=f"{ref_prefix}/{def_name}")
-
-        # Non-recursive alias: return the schema directly, without $defs.
-        return value_schema
+    pass
 
 
 @register
 def on_number(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is int:
-        schema = JSONSchema(type=JSONSchemaInstanceType.INTEGER)
-    elif instance.origin_type is float:
-        schema = JSONSchema(type=JSONSchemaInstanceType.NUMBER)
-    else:
-        return None
-    for annotation in instance.annotations:
-        if isinstance(annotation, Maximum):
-            schema.maximum = annotation.value
-        elif isinstance(annotation, Minimum):
-            schema.minimum = annotation.value
-        elif isinstance(annotation, ExclusiveMaximum):
-            schema.exclusiveMaximum = annotation.value
-        elif isinstance(annotation, ExclusiveMinimum):
-            schema.exclusiveMinimum = annotation.value
-        elif isinstance(annotation, MultipleOf):
-            schema.multipleOf = annotation.value
-    return schema
+    pass
 
 
 @register
 def on_bool(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is bool:
-        return JSONSchema(type=JSONSchemaInstanceType.BOOLEAN)
+    pass
 
 
 @register
 def on_none(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type in (NoneType, None):
-        return JSONSchema(type=JSONSchemaInstanceType.NULL)
+    pass
 
 
 @register
 def on_date_objects(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type in (
-        datetime.datetime,
-        datetime.date,
-        datetime.time,
-    ):
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=DATETIME_FORMATS[instance.origin_type],
-        )
+    pass
 
 
 @register
 def on_timedelta(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is datetime.timedelta:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.NUMBER,
-            format=JSONSchemaInstanceFormatExtension.TIMEDELTA,
-        )
+    pass
 
 
 @register
 def on_timezone(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is datetime.timezone:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING, pattern=UTC_OFFSET_PATTERN
-        )
+    pass
 
 
 @register
 def on_zone_info(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is ZoneInfo:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaInstanceFormatExtension.TIME_ZONE,
-        )
+    pass
 
 
 @register
 def on_uuid(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is UUID:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaStringFormat.UUID,
-        )
+    pass
 
 
 @register
 def on_ipaddress(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type in (
-        ipaddress.IPv4Address,
-        ipaddress.IPv6Address,
-        ipaddress.IPv4Network,
-        ipaddress.IPv6Network,
-        ipaddress.IPv4Interface,
-        ipaddress.IPv6Interface,
-    ):
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=IPADDRESS_FORMATS[instance.origin_type],  # type: ignore
-        )
+    pass
 
 
 @register
 def on_decimal(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is Decimal:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaInstanceFormatExtension.DECIMAL,
-        )
+    pass
 
 
 @register
 def on_fraction(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if instance.origin_type is Fraction:
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaInstanceFormatExtension.FRACTION,
-        )
+    pass
 
 
 def on_tuple(instance: Instance, ctx: Context) -> JSONArraySchema:
-    args = get_args(instance.type)
-    if not args:
-        if instance.type in (Tuple, tuple):
-            args = [Any, ...]  # type: ignore
-        else:
-            return JSONArraySchema(maxItems=0)
-    elif len(args) == 1 and args[0] == ():
-        if not PY_311_MIN:
-            return JSONArraySchema(maxItems=0)
-    if len(args) == 2 and args[1] is Ellipsis:
-        items_schema = _get_schema_or_none(instance.derive(type=args[0]), ctx)
-        return JSONArraySchema(items=items_schema)
-    else:
-        min_items = 0
-        max_items = 0
-        prefix_items = []
-        items: JSONSchema | None = None
-        unpack_schema: JSONSchema | None = None
-        unpack_idx = 0
-        for arg_idx, arg in enumerate(args, start=1):
-            if not is_unpack(arg):
-                min_items += 1
-                if not unpack_schema:
-                    prefix_items.append(
-                        get_schema(instance.derive(type=arg), ctx)
-                    )
-            else:
-                unpack_schema = get_schema(instance.derive(type=arg), ctx)
-                unpack_idx = arg_idx
-        if unpack_schema:
-            prefix_items.extend(unpack_schema.prefixItems or [])
-            min_items += unpack_schema.minItems or 0
-            max_items += unpack_schema.maxItems or 0
-            if unpack_idx == len(args):
-                items = unpack_schema.items
-        else:
-            min_items = len(args)
-            max_items = len(args)
-        return JSONArraySchema(
-            prefixItems=prefix_items or None,
-            items=items,
-            minItems=min_items or None,
-            maxItems=max_items or None,
-        )
+    pass
 
 
 def on_named_tuple(instance: Instance, ctx: Context) -> JSONSchema:
-    resolved = resolve_type_params(
-        instance.origin_type, get_args(instance.type)
-    )[instance.origin_type]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(
-            instance.origin_type, eval_str=True
-        ).items()
-    }
-    fields = getattr(instance.type, "_fields", ())
-    defaults = getattr(instance.type, "_field_defaults", {})
-    as_dict = instance.get_owner_dialect_or_config_option(
-        "namedtuple_as_dict", False
-    )
-    serialize_option = instance.get_overridden_serialization_method()
-    if serialize_option == "as_dict":
-        as_dict = True
-    elif serialize_option == "as_list":
-        as_dict = False
-    properties = {}
-    for f_name in fields:
-        f_type = annotations.get(f_name, Any)
-        f_schema = get_schema(instance.derive(type=f_type), ctx)
-        f_default = defaults.get(f_name, MISSING)
-        if f_default is not MISSING:
-            if isinstance(f_schema, EmptyJSONSchema):
-                f_schema = JSONSchema()
-            f_schema.default = _default(
-                f_type, f_default, instance.get_self_config()
-            )
-        properties[f_name] = f_schema
-    if as_dict:
-        return JSONObjectSchema(
-            properties=properties or None,
-            required=list(fields),
-            additionalProperties=False,
-        )
-    else:
-        return JSONArraySchema(
-            prefixItems=list(properties.values()) or None,
-            maxItems=len(properties) or None,
-            minItems=len(properties) or None,
-        )
+    pass
 
 
 def on_typed_dict(instance: Instance, ctx: Context) -> JSONObjectSchema:
-    resolved = resolve_type_params(
-        instance.origin_type, get_args(instance.type)
-    )[instance.origin_type]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(
-            instance.origin_type, eval_str=True
-        ).items()
-    }
-    all_keys = list(annotations.keys())
-    required_keys = set(getattr(instance.type, "__required_keys__", all_keys))
-
-    # workaround for https://github.com/python/cpython/issues/97727
-    for key, annotation in annotations.items():
-        if isinstance(annotation, ForwardRef):
-            annotation = evaluate_forward_ref(annotation)
-            if get_type_origin(annotation) is NotRequired:
-                required_keys.discard(key)
-
-    return JSONObjectSchema(
-        properties={
-            key: get_schema(instance.derive(type=annotations[key]), ctx)
-            for key in all_keys
-        }
-        or None,
-        required=sorted(required_keys) or None,
-        additionalProperties=False,
-    )
+    pass
 
 
 def apply_array_constraints(
     instance: Instance, schema: JSONSchema
 ) -> JSONSchema:
-    has_contains = False
-    min_contains: int | None = None
-    max_contains: int | None = None
-    for annotation in instance.annotations:
-        if isinstance(annotation, MinItems):
-            schema.minItems = annotation.value
-        elif isinstance(annotation, MaxItems):
-            schema.maxItems = annotation.value
-        elif isinstance(annotation, UniqueItems):
-            schema.uniqueItems = annotation.value
-        elif isinstance(annotation, Contains):
-            schema.contains = annotation.value
-            has_contains = True
-        elif isinstance(annotation, MinContains):
-            min_contains = annotation.value
-        elif isinstance(annotation, MaxContains):
-            max_contains = annotation.value
-    if has_contains:
-        if min_contains is not None:
-            schema.minContains = min_contains
-        if max_contains is not None:
-            schema.maxContains = max_contains
-    return schema
+    pass
 
 
 def apply_object_constraints(
     instance: Instance, schema: JSONSchema
 ) -> JSONSchema:
-    for annotation in instance.annotations:
-        if isinstance(annotation, MaxProperties):
-            schema.maxProperties = annotation.value
-        elif isinstance(annotation, MinProperties):
-            schema.minProperties = annotation.value
-        elif isinstance(annotation, DependentRequired):
-            schema.dependentRequired = annotation.value
-    return schema
+    pass
 
 
 @register
 def on_collection(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if not issubclass(instance.origin_type, Collection):
-        return None
-    elif issubclass(instance.origin_type, Enum):
-        return None
-
-    args = get_args(instance.type)
-
-    if issubclass(instance.origin_type, ByteString):  # type: ignore[arg-type]
-        return JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaInstanceFormatExtension.BASE64,
-        )
-    elif issubclass(instance.origin_type, str):
-        schema = JSONSchema(type=JSONSchemaInstanceType.STRING)
-        for annotation in instance.annotations:
-            if isinstance(annotation, MinLength):
-                schema.minLength = annotation.value
-            elif isinstance(annotation, MaxLength):
-                schema.maxLength = annotation.value
-            elif isinstance(annotation, Pattern):
-                schema.pattern = annotation.value
-        return schema
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, (list, deque)
-    ):
-        return apply_array_constraints(
-            instance,
-            JSONArraySchema(
-                items=(
-                    _get_schema_or_none(instance.derive(type=args[0]), ctx)
-                    if args
-                    else None
-                )
-            ),
-        )
-    elif issubclass(instance.origin_type, tuple):
-        if is_named_tuple(instance.origin_type):
-            return apply_array_constraints(
-                instance, on_named_tuple(instance, ctx)
-            )
-        elif is_generic(instance.type):
-            return apply_array_constraints(instance, on_tuple(instance, ctx))
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, (frozenset, Set)
-    ):
-        return apply_array_constraints(
-            instance,
-            JSONArraySchema(
-                items=(
-                    _get_schema_or_none(instance.derive(type=args[0]), ctx)
-                    if args
-                    else None
-                ),
-                uniqueItems=True,
-            ),
-        )
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, ChainMap
-    ):
-        return apply_array_constraints(
-            instance,
-            JSONArraySchema(
-                items=get_schema(
-                    instance=instance.derive(
-                        type=(
-                            dict[args[0], args[1]]  # type: ignore
-                            if args
-                            else dict
-                        )
-                    ),
-                    ctx=ctx,
-                )
-            ),
-        )
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, Counter
-    ):
-        schema = JSONObjectSchema(
-            additionalProperties=get_schema(instance.derive(type=int), ctx)
-        )
-        if args:
-            schema.propertyNames = _get_schema_or_none(
-                instance.derive(type=args[0]), ctx
-            )
-        return apply_object_constraints(instance, schema)
-    elif is_typed_dict(instance.origin_type):
-        return on_typed_dict(instance, ctx)
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, Mapping
-    ):
-        schema = JSONObjectSchema(
-            additionalProperties=(
-                _get_schema_or_none(instance.derive(type=args[1]), ctx)
-                if args
-                else None
-            ),
-            propertyNames=(
-                _get_schema_or_none(instance.derive(type=args[0]), ctx)
-                if args
-                else None
-            ),
-        )
-        return apply_object_constraints(instance, schema)
-    elif is_generic(instance.type) and issubclass(
-        instance.origin_type, Sequence
-    ):
-        return apply_array_constraints(
-            instance,
-            JSONArraySchema(
-                items=(
-                    _get_schema_or_none(instance.derive(type=args[0]), ctx)
-                    if args
-                    else None
-                )
-            ),
-        )
+    pass
 
 
 @register
 def on_pathlike(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if issubclass(instance.origin_type, os.PathLike):
-        schema = JSONSchema(
-            type=JSONSchemaInstanceType.STRING,
-            format=JSONSchemaInstanceFormatExtension.PATH,
-        )
-        for annotation in instance.annotations:
-            if isinstance(annotation, MaxLength):
-                schema.maxLength = annotation.value
-            elif isinstance(annotation, MinLength):
-                schema.minLength = annotation.value
-        return schema
+    pass
 
 
 @register
 def on_enum(instance: Instance, ctx: Context) -> JSONSchema | None:
-    if issubclass(instance.origin_type, Enum):
-        return JSONSchema(enum=[m.value for m in instance.origin_type])
+    pass
 
 
 __all__ = ["Instance", "get_schema"]

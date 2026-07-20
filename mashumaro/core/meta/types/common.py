@@ -93,43 +93,23 @@ class ValueSpec:
 
     @cached_property
     def attrs(self) -> Any:
-        if self.builder.is_nailed:
-            return self.builder.attrs
-        if is_self(self.type):
-            typ = self.builder.cls
-        else:
-            typ = self.origin_type
-        attrs = self.attrs_registry.get(typ)
-        if attrs is None:
-            attrs = AttrsHolder()
-            self.attrs_registry[typ] = attrs
-        return attrs
+        pass
 
     @cached_property
     def cls_attrs_name(self) -> str:
-        if self.builder.is_nailed:
-            return "cls"
-        else:
-            self.builder.ensure_object_imported(self.attrs)
-            return self.attrs.__name__
+        pass
 
     @cached_property
     def self_attrs_name(self) -> str:
-        if self.builder.is_nailed:
-            return "self"
-        else:
-            self.builder.ensure_object_imported(self.attrs)
-            return self.attrs.__name__
+        pass
 
     @cached_property
     def attrs_registry(self) -> dict[Any, Any]:
-        return self.builder.attrs_registry
+        pass
 
     @cached_property
     def attrs_registry_name(self) -> str:
-        name = f"attrs_registry_{id(self.attrs_registry)}"
-        self.builder.ensure_object_imported(self.attrs_registry, name)
-        return name
+        pass
 
 
 class AbstractMethodBuilder(ABC):
@@ -207,8 +187,7 @@ class Registry:
     _registry: list[ValueSpecExprCreator] = field(default_factory=list)
 
     def register(self, function: ValueSpecExprCreator) -> ValueSpecExprCreator:
-        self._registry.append(function)
-        return function
+        pass
 
     def get(self, spec: ValueSpec) -> Expression:
         if is_annotated(spec.type):

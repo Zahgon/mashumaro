@@ -45,10 +45,10 @@ class _PassThrough(SerializationStrategy):
         raise NotImplementedError
 
     def serialize(self, value: T) -> T:
-        return value
+        pass
 
     def deserialize(self, value: T) -> T:
-        return value
+        pass
 
 
 pass_through = _PassThrough()

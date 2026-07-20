@@ -20,11 +20,11 @@ DefaultDumper = getattr(yaml, "CDumper", yaml.Dumper)
 
 
 def _default_encoder(data: Any) -> EncodedData:
-    return yaml.dump(data, Dumper=DefaultDumper)
+    pass
 
 
 def _default_decoder(data: EncodedData) -> Any:
-    return yaml.load(data, DefaultLoader)
+    pass
 
 
 class YAMLDecoder(Generic[T]):

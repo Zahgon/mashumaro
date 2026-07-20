@@ -18,11 +18,11 @@ DefaultDumper = getattr(yaml, "CDumper", yaml.Dumper)
 
 
 def default_encoder(data: Any) -> EncodedData:
-    return yaml.dump(data, Dumper=DefaultDumper)
+    pass
 
 
 def default_decoder(data: EncodedData) -> dict[Any, Any]:
-    return yaml.load(data, DefaultLoader)
+    pass
 
 
 class DataClassYAMLMixin(DataClassDictMixin):
@@ -31,7 +31,7 @@ class DataClassYAMLMixin(DataClassDictMixin):
     def to_yaml(
         self: T, encoder: Encoder = default_encoder, **to_dict_kwargs: Any
     ) -> EncodedData:
-        return encoder(self.to_dict(**to_dict_kwargs))
+        pass
 
     @classmethod
     def from_yaml(
@@ -40,4 +40,4 @@ class DataClassYAMLMixin(DataClassDictMixin):
         decoder: Decoder = default_decoder,
         **from_dict_kwargs: Any,
     ) -> T:
-        return cls.from_dict(decoder(data), **from_dict_kwargs)
+        pass

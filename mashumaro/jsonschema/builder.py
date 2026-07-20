@@ -91,7 +91,7 @@ class JSONSchemaBuilder:
         )
 
     def get_definitions(self) -> JSONSchemaDefinitions:
-        return JSONSchemaDefinitions(self.context.definitions)
+        pass
 
 
 __all__ = ["JSONSchemaBuilder", "build_json_schema"]

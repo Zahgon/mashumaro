@@ -82,16 +82,10 @@ class RoundedDecimal(SerializationStrategy):
         self.rounding = rounding
 
     def serialize(self, value: decimal.Decimal) -> str:
-        if self.exp:
-            if self.rounding:
-                return str(value.quantize(self.exp, rounding=self.rounding))
-            else:
-                return str(value.quantize(self.exp))
-        else:
-            return str(value)
+        pass
 
     def deserialize(self, value: str) -> decimal.Decimal:
-        return decimal.Decimal(str(value))
+        pass
 
 
 @dataclass(unsafe_hash=True)

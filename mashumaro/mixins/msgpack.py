@@ -24,11 +24,11 @@ class MessagePackDialect(Dialect):
 
 
 def default_encoder(data: Any) -> EncodedData:
-    return msgpack.packb(data, use_bin_type=True)
+    pass
 
 
 def default_decoder(data: EncodedData) -> dict[Any, Any]:
-    return msgpack.unpackb(data, raw=False)
+    pass
 
 
 class DataClassMessagePackMixin(DataClassDictMixin):

@@ -8,7 +8,6 @@ import typing
 import uuid
 from contextlib import contextmanager
 
-# noinspection PyProtectedMember
 from dataclasses import _FIELDS  # type: ignore
 from dataclasses import KW_ONLY, MISSING, Field, is_dataclass
 from functools import lru_cache
@@ -103,7 +102,7 @@ class InternalMethodName(str):
 
     @property
     def public(self) -> str:
-        return self[len(self._PREFIX) : -len(self._SUFFIX)]
+        pass
 
 
 class CodeBuilder:
@@ -162,7 +161,7 @@ class CodeBuilder:
 
     @property
     def namespace(self) -> typing.Mapping[typing.Any, typing.Any]:
-        return self.cls.__dict__
+        pass
 
     @property
     def annotations(self) -> dict[str, typing.Any]:
@@ -170,7 +169,7 @@ class CodeBuilder:
 
     @property
     def is_nailed(self) -> bool:
-        return self.attrs is self.cls
+        pass
 
     def __get_field_types(
         self, recursive: bool = True, include_extras: bool = False
@@ -233,29 +232,11 @@ class CodeBuilder:
     @property
     @lru_cache()
     def dataclass_fields(self) -> dict[str, Field]:
-        d = {}
-        for ancestor in self.cls.__mro__[-1:0:-1]:
-            if is_dataclass(ancestor):
-                for field in getattr(ancestor, _FIELDS).values():
-                    d[field.name] = field
-        for name in self.__get_field_types(recursive=False):
-            field = self.namespace.get(name, MISSING)
-            if isinstance(field, Field):
-                d[name] = field
-            else:
-                field = self.namespace.get(_FIELDS, {}).get(name, MISSING)
-                if isinstance(field, Field):
-                    d[name] = field
-                else:
-                    d.pop(name, None)
-        return d
+        pass
 
     @property
     def metadatas(self) -> dict[str, typing.Mapping[str, typing.Any]]:
-        return {
-            name: field.metadata
-            for name, field in self.dataclass_fields.items()
-        }
+        pass
 
     @lru_cache(None)
     def get_field_default(
@@ -374,7 +355,6 @@ class CodeBuilder:
                         "'include_subtypes' enabled"
                     )
                 discr = Discriminator(
-                    # prevent RecursionError
                     field=discr.field,
                     include_subtypes=discr.include_subtypes,
                     variant_tagger_fn=discr.variant_tagger_fn,
@@ -439,9 +419,6 @@ class CodeBuilder:
                 if config.forbid_extra_keys:
                     allowed_keys = {f[1] or f[0] for f in filtered_fields}
 
-                    # If a discriminator with a field is set via config,
-                    # we should allow this field to be present in the input
-                    # This will not work for annotated discriminators though...
                     discr = self.get_discriminator(look_in_parents=True)
                     if discr and discr.field:
                         allowed_keys.add(discr.field)
@@ -876,7 +853,6 @@ class CodeBuilder:
                         self.add_line(f"value = self.{fname}")
                     alias = aliases.get(fname)
                     if omit_default:
-                        # do not call default_factory if we don't need to
                         default = self.get_field_default(
                             fname, call_factory=True
                         )
@@ -996,8 +972,6 @@ class CodeBuilder:
                 default_literal = self.get_field_default_literal(
                     self.get_field_default(fname, call_factory=True)
                 )
-                # if default is None:
-                #     comp_expr = f"value is not {default_literal}"
                 if isinstance(default, float) and math.isnan(default):
                     self.ensure_object_imported(math.isnan, "isnan")
                     comp_expr = "not isnan(value)"
@@ -1180,53 +1154,20 @@ class CodeBuilder:
     def iter_serialization_strategies(
         self, metadata: typing.Mapping, ftype: typing.Type
     ) -> typing.Iterator[SerializationStrategyValueType]:
-        if is_hashable(ftype):
-            yield metadata.get("serialization_strategy")
-            yield from self.__iter_serialization_strategies(ftype)
+        pass
 
     @staticmethod
     def _get_strategy_for_type(
         strategies: typing.Mapping[typing.Any, SerializationStrategyValueType],
         ftype: typing.Type,
     ) -> SerializationStrategyValueType | None:
-        result = strategies.get(ftype)
-        if result is not None:
-            return result
-        mro = getattr(ftype, "__mro__", None)
-        if mro is not None:
-            for base in mro[1:]:
-                result = strategies.get(base)
-                if result is not None and getattr(
-                    result, "__match_subclasses__", False
-                ):
-                    return result
-        return None
+        pass
 
     @typing.no_type_check
     def __iter_serialization_strategies(
         self, ftype: typing.Type
     ) -> typing.Iterator[SerializationStrategyValueType]:
-        if self.dialect is not None:
-            yield self._get_strategy_for_type(
-                self.dialect.serialization_strategy, ftype
-            )
-        default_dialect = self.get_config().dialect
-        if default_dialect is not None:
-            if not is_dialect_subclass(default_dialect):
-                raise BadDialect(
-                    'Config option "dialect" of '
-                    f"{type_name(self.cls)} must be a subclass of Dialect"
-                )
-            yield self._get_strategy_for_type(
-                default_dialect.serialization_strategy, ftype
-            )
-        yield self._get_strategy_for_type(
-            self.get_config().serialization_strategy, ftype
-        )
-        if self.default_dialect is not None:
-            yield self._get_strategy_for_type(
-                self.default_dialect.serialization_strategy, ftype
-            )
+        pass
 
     def get_dialect_or_config_option(
         self, option: str, default: typing.Any, cls: typing.Type | None = None
